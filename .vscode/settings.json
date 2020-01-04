@@ -1,0 +1,5 @@
+{
+    "python.pythonPath": "/users/gpu/haribala/anaconda3/envs/attn-gan/bin/python",
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true
+}
