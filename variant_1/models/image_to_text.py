@@ -45,13 +45,16 @@ class ImageToText(nn.Module):
         }
         self.rnn = LSTMWithAttention(**lstm_opts)
 
-    def forward(self, x):
+    def forward(self, images):
         """
         Run the model on an image and generate the caption for it.
         """
         # pylint: disable=arguments-differ
         # The arguments will differ from the base class since nn.Module is an abstract class.
-        print(x.size())
+
+        image_features = self.img_enc(images)
+        captions, captions_logits, attn_maps = self.rnn(image_features)
+        return captions, captions_logits, attn_maps
 
 def run_tests():
     """
@@ -69,9 +72,13 @@ def run_tests():
     }
     img_to_text = ImageToText(**image_to_text_opts)
     print(img_to_text)
-    s_images = (d_batch, 256, 256, 3)
+    s_images = (d_batch, 3, 256, 256)
     images = torch.randn(*s_images)
     print(images.size())
+    captions, captions_logits, attn_maps = img_to_text(images)
+    print(captions)
+    print('captions_logits:', captions_logits.size())
+    print('attn_maps:', attn_maps.size())
 
 if __name__ == '__main__':
     run_tests()
