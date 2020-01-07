@@ -30,5 +30,15 @@ class FullArchitecture:
         """
 
         images = self.image_gen.sample(num_samples=num_samples)
-        texts = self.cond_text_gen.sample(images=images)
-        return images, texts
+        captions, _, _ = self.cond_text_gen.sample(images)
+        return images, captions
+
+def run_tests():
+    """
+    Run tests.
+    """
+    model = FullArchitecture()
+    model.train_for_one_epoch()
+
+if __name__ == '__main__':
+    run_tests()
