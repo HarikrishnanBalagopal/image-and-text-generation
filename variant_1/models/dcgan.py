@@ -2,6 +2,9 @@
 Deep Convolutional Generative Adversarial Network (DCGAN) is a generative model
 that can be sampled to get images. The network uses 2d convolutional layers.
 """
+# pylint: disable=wrong-import-order
+# pylint: disable=ungrouped-imports
+# The imports are ordered by length.
 
 import os
 import torch
@@ -14,8 +17,8 @@ from torch import nn
 from torch import optim
 from utils import mkdir_p
 from torchvision import transforms
-from datasets.celeba import CELEBA_DATASET
-from datasets.cub2011 import Cub2011Dataset
+from datasets.cub2011 import CUB2011Dataset
+from datasets.celeba import get_celeba_dataset
 from .image_generator import ImageGenerator64, ImageGenerator256
 from .image_discriminator import ImageDiscriminator64, ImageDiscriminator256
 
@@ -163,25 +166,25 @@ def test_dcgan_256():
     d_noise = 100
     d_gen = 64
     d_dis = 64
+    d_image_size = 256
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     model = DCGAN256(d_noise=d_noise, d_gen=d_gen, d_dis=d_dis).to(device)
     print(model)
 
-    s_noise = (20, d_noise, 1, 1)
+    s_noise = (d_batch, d_noise, 1, 1)
     noise = torch.randn(s_noise, device=device)
     pred_logits = model(noise)
     print('noise:', noise.size(), 'pred_logits:', pred_logits.size())
 
-    print('training on celeba:')
-    dataloader = torch.utils.data.DataLoader(CELEBA_DATASET, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4)
-    train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=2, save_results=False)
+    # print('training on celeba:')
+    # celeba_dataset = get_celeba_dataset(d_image_size=d_image_size)
+    # dataloader = torch.utils.data.DataLoader(celeba_dataset, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4)
+    # train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=2, save_results=False)
 
-    '''
     print('training on cub2011:')
     d_max_seq_len = 18
-    d_image_size = 64
     cub2011_dataset_dir = '../../../exp2/CUB_200_2011'
     cub2011_captions_dir = '../../../exp2/cub_with_captions'
     img_transforms = transforms.Compose([
@@ -189,11 +192,9 @@ def test_dcgan_256():
         transforms.ToTensor(),
         transforms.Normalize((.5, .5, .5), (.5, .5, .5))
     ])
-    print('reading CUB200-2011 dataset')
-    cub2011_dataset = Cub2011Dataset(dataset_dir=cub2011_dataset_dir, captions_dir=cub2011_captions_dir, img_transforms=img_transforms, d_max_seq_len=d_max_seq_len)
+    cub2011_dataset = CUB2011Dataset(dataset_dir=cub2011_dataset_dir, captions_dir=cub2011_captions_dir, img_transforms=img_transforms, d_max_seq_len=d_max_seq_len)
     dataloader = torch.utils.data.DataLoader(cub2011_dataset, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4)
     train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=200)
-    '''
 
 def test_dcgan_64():
     """
@@ -206,25 +207,26 @@ def test_dcgan_64():
     d_noise = 100
     d_gen = 64
     d_dis = 64
+    d_image_size = 64
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     model = DCGAN64(d_noise=d_noise, d_gen=d_gen, d_dis=d_dis).to(device)
     print(model)
 
-    s_noise = (20, d_noise, 1, 1)
+    s_noise = (d_batch, d_noise, 1, 1)
     noise = torch.randn(s_noise, device=device)
     pred_logits = model(noise)
     print('noise:', noise.size(), 'pred_logits:', pred_logits.size())
 
     print('training on celeba:')
-    dataloader = torch.utils.data.DataLoader(CELEBA_DATASET, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4)
+    celeba_dataset = get_celeba_dataset(d_image_size=d_image_size)
+    dataloader = torch.utils.data.DataLoader(celeba_dataset, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4)
     train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=2, save_results=False)
 
     '''
     print('training on cub2011:')
     d_max_seq_len = 18
-    d_image_size = 64
     cub2011_dataset_dir = '../../../exp2/CUB_200_2011'
     cub2011_captions_dir = '../../../exp2/cub_with_captions'
     img_transforms = transforms.Compose([
@@ -232,8 +234,7 @@ def test_dcgan_64():
         transforms.ToTensor(),
         transforms.Normalize((.5, .5, .5), (.5, .5, .5))
     ])
-    print('reading CUB200-2011 dataset')
-    cub2011_dataset = Cub2011Dataset(dataset_dir=cub2011_dataset_dir, captions_dir=cub2011_captions_dir, img_transforms=img_transforms, d_max_seq_len=d_max_seq_len)
+    cub2011_dataset = CUB2011Dataset(dataset_dir=cub2011_dataset_dir, captions_dir=cub2011_captions_dir, img_transforms=img_transforms, d_max_seq_len=d_max_seq_len)
     dataloader = torch.utils.data.DataLoader(cub2011_dataset, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4)
     train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=200)
     '''
@@ -243,7 +244,8 @@ def run_tests():
     Run tests on GAN.
     """
 
-    test_dcgan_64()
+    # test_dcgan_64()
+    test_dcgan_256()
 
 
 if __name__ == '__main__':
