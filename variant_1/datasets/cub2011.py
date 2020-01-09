@@ -83,6 +83,7 @@ class CUB2011Dataset(Dataset):
         # pylint: disable=too-many-arguments
         # The arguments are necessary to construct this dataset.
 
+        super().__init__()
         self.dataset_dir = os.path.expanduser(dataset_dir)
         assert os.path.isdir(self.dataset_dir), f'The dataset path {self.dataset_dir} is not a directory.'
 

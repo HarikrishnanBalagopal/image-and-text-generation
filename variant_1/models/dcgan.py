@@ -162,7 +162,7 @@ def test_dcgan_256():
     # pylint: disable=too-many-locals
     # This number of local variables is necessary for testing.
 
-    d_batch = 20
+    d_batch = 16
     d_noise = 100
     d_gen = 64
     d_dis = 64
@@ -193,7 +193,7 @@ def test_dcgan_256():
         transforms.Normalize((.5, .5, .5), (.5, .5, .5))
     ])
     cub2011_dataset = CUB2011Dataset(dataset_dir=cub2011_dataset_dir, captions_dir=cub2011_captions_dir, img_transforms=img_transforms, d_max_seq_len=d_max_seq_len)
-    dataloader = torch.utils.data.DataLoader(cub2011_dataset, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4)
+    dataloader = torch.utils.data.DataLoader(cub2011_dataset, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4, pin_memory=True)
     train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=200)
 
 def test_dcgan_64():
