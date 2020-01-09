@@ -5,15 +5,20 @@ The images can be downloaded here: http://www.vision.caltech.edu/visipedia/CUB-2
 The captions are from the paper Learning Deep Representations of Fine-Grained Visual Descriptions https://arxiv.org/pdf/1605.05395.pdf
 The captions can be downloaded here: https://github.com/reedscot/cvpr2016
 """
+# pylint: disable=wrong-import-order
+# pylint: disable=ungrouped-imports
+# The imports are ordered by length.
 
 import os
 import re
 import torch
 import tarfile
 import pandas as pd
+
+from torchvision import transforms
 from torch.utils.data import Dataset
-from torchvision.datasets.folder import default_loader
 from torchvision.datasets.utils import download_url
+from torchvision.datasets.folder import default_loader
 
 def download_images(download_dir):
     """
@@ -55,7 +60,7 @@ class Dictionary:
         """
 
         words = sentence.strip().lower().split()
-        return torch.tensor([self.word2idx[word] for word in words], dtype=torch.long)
+        return torch.LongTensor([self.word2idx[word] for word in words])
 
     def decode(self, idxs):
         """
@@ -71,8 +76,13 @@ class CUB2011Dataset(Dataset):
     """
     Class to load the CUB2011 dataset with captions.
     """
+    # pylint: disable=too-many-instance-attributes
+    # The attributes are necessary for this dataset.
 
-    def __init__(self, dataset_dir, captions_dir, split='train', img_transforms=None, loader=default_loader):
+    def __init__(self, dataset_dir, captions_dir, split='train', d_max_seq_len=18, img_transforms=None, loader=default_loader):
+        # pylint: disable=too-many-arguments
+        # The arguments are necessary to construct this dataset.
+
         self.dataset_dir = os.path.expanduser(dataset_dir)
         assert os.path.isdir(self.dataset_dir), f'The dataset path {self.dataset_dir} is not a directory.'
 
@@ -82,10 +92,12 @@ class CUB2011Dataset(Dataset):
         self.captions_dir = os.path.join(captions_dir, 'text_c10')
         assert os.path.isdir(self.captions_dir), f'The captions path {self.captions_dir} is not a directory.'
 
+        self.d_max_seq_len = d_max_seq_len
         self.img_transforms = img_transforms
         self.loader = loader
         self.split = split
         self.dict = Dictionary()
+        self.end_token = self.dict.add_word('<eos>')
 
         if not self._check_integrity():
             raise RuntimeError('Dataset not found or corrupted.')
@@ -94,6 +106,9 @@ class CUB2011Dataset(Dataset):
         """
         Load the metadata such as image filepaths, class names and whether image belongs to train or test split.
         """
+        # pylint: disable=attribute-defined-outside-init
+        # pylint: disable=bad-whitespace
+        # This method is called by init. The whitespace makes the code more readable.
 
         images             = pd.read_csv(os.path.join(self.dataset_dir, 'images.txt')            , sep=' ', names=['img_id', 'filepath'       ])
         image_class_labels = pd.read_csv(os.path.join(self.dataset_dir, 'image_class_labels.txt'), sep=' ', names=['img_id', 'target'         ])
@@ -104,43 +119,47 @@ class CUB2011Dataset(Dataset):
 
 
     def _load_captions(self):
+        """
+        Load the captions.
+        """
+        # pylint: disable=attribute-defined-outside-init
+        # This method is called by init.
 
-        captions = []
-        end_token = self.dict.add_word('<eos>')
+        self.captions = []
 
         for _, row in self.data.iterrows():
             cap_filepath = os.path.join(self.captions_dir, row.filepath[:-3] + 'txt')
 
             if not os.path.isfile(cap_filepath):
-                print(cap_filepath)
-                return False
+                raise RuntimeError(f'This caption path {cap_filepath} is not a file.')
 
-            with open(cap_filepath) as f:
-                lines = f.read().strip().lower()
+            with open(cap_filepath) as cap_file:
+                lines = cap_file.read().strip().lower()
 
-            lines = re.sub(r"([,.])", r" \1 ", lines)
-            lines = re.sub(r"[^a-z\n,. ]+", ' ', lines).split('\n')
+            lines = re.sub(r"([,.])", r" \1 ", lines) # Add a space before and after every comma and dot.
+            lines = re.sub(r"[^a-z\n,. ]+", ' ', lines).split('\n') # Replace long stretches of invalid characters with space.
+
             current_image_captions = []
 
             for line in lines:
-                words = line.strip().split()
+                words = line.strip().split()[:self.d_max_seq_len - 1]
                 if len(words) == 0:
                     continue
-                caption_list = [SOS_TOKEN] + [self.dict.add_word(word) for word in words] + [EOS_TOKEN]
-                current_image_captions.append(torch.tensor(caption_list, dtype=torch.long))
+                num_padding = self.d_max_seq_len - len(words)
+                caption = [self.dict.add_word(word) for word in words] + num_padding * [self.end_token]
+                current_image_captions.append(torch.LongTensor(caption))
 
             if len(current_image_captions) == 0:
-                print('MUST HAVE ATLEAST 1 VALID CAPTION FOR EACH IMAGE')
-                print('caption file path:', cap_filepath)
-                return False
+                raise RuntimeError(f'Must have atleast 1 valid caption for each image, caption file path: {cap_filepath}')
 
-            captions.append(current_image_captions)
-        self.captions = captions
+            self.captions.append(current_image_captions)
 
     def _check_integrity(self):
         """
         Load images and captions and check integrity of the dataset.
         """
+        # pylint: disable=broad-except
+        # This integrity check should fail if ANY exception is thrown.
 
         try:
             self._load_metadata()
@@ -155,19 +174,49 @@ class CUB2011Dataset(Dataset):
 
     def __getitem__(self, idx):
         sample = self.data.iloc[idx]
-        path = os.path.join(self.root, self.base_folder, sample.filepath)
-        target = sample.target - 1  # Targets start at 1 by default, so shift to 0
-        img = self.loader(path)
 
-        if self.transform is not None:
-            img = self.transform(img)
+        img_filepath = os.path.join(self.images_dir, sample.filepath)
+        img = self.loader(img_filepath)
+        if self.img_transforms is not None:
+            img = self.img_transforms(img)
 
-        caps = self.captions[idx]
-        return img, caps, target
+        captions = self.captions[idx]
+        caption = captions[torch.randint(low=0, high=len(captions), size=(1,)).item()]
+
+        class_id = sample.target - 1  # Make class ids start at 0 (starts at 1 by default)
+
+        return img, caption, class_id
 
 def run_tests():
-    print('reading CUB200-2011 dataset')
-    trainset = CUB2011Dataset(dataset_dir'..', captions_dir='../cub_with_captions', download=False)
-    
+    """
+    Run tests for CUB2011Dataset.
+    """
+
+    print('Loading the CUB2011 dataset:')
+    d_batch = 20
+    d_image_size = 64
+    dataset_dir = '../../../../exp2/CUB_200_2011'
+    captions_dir = '../../../../exp2/cub_with_captions'
+    img_transforms = transforms.Compose([
+        transforms.Resize((d_image_size, d_image_size)),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
+
+    cub2011_dataset = CUB2011Dataset(dataset_dir=dataset_dir, captions_dir=captions_dir, img_transforms=img_transforms)
+    print(cub2011_dataset)
+
+    dataloader = torch.utils.data.DataLoader(cub2011_dataset, batch_size=d_batch, shuffle=True, num_workers=4)
+
+    for i, batch in enumerate(dataloader):
+        if i >= 4:
+            break
+
+        imgs, captions, class_ids = batch
+
+        print('imgs:', imgs.size())
+        print('captions:', captions.size())
+        print('class_ids:', class_ids.size(), class_ids)
+
 if __name__ == '__main__':
     run_tests()
