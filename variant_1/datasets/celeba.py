@@ -8,15 +8,20 @@ import matplotlib.pyplot as plt
 import torchvision
 from torchvision.datasets import ImageFolder
 from torchvision import transforms
-_DATASET_FOLDER = '/users/gpu/haribala/code/datasets/celeba'
-_IMAGE_SIZE = 64
 
-CELEBA_DATASET = ImageFolder(root=_DATASET_FOLDER, transform=transforms.Compose([
-    transforms.Resize(_IMAGE_SIZE),
-    transforms.CenterCrop(_IMAGE_SIZE),
-    transforms.ToTensor(),
-    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-]))
+def get_celeba_dataset(d_image_size):
+    """
+    Load the celeba dataset and resize images to a given size.
+    """
+
+    dataset_folder = '/users/gpu/haribala/code/datasets/celeba'
+
+    return ImageFolder(root=dataset_folder, transform=transforms.Compose([
+        transforms.Resize(d_image_size),
+        transforms.CenterCrop(d_image_size),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ]))
 
 def run_tests():
     """
@@ -24,7 +29,8 @@ def run_tests():
     """
 
     d_batch = 128
-    dataloader = torch.utils.data.DataLoader(CELEBA_DATASET, batch_size=d_batch, shuffle=True, num_workers=4)
+    celeba_dataset = get_celeba_dataset(64)
+    dataloader = torch.utils.data.DataLoader(celeba_dataset, batch_size=d_batch, shuffle=True, num_workers=4)
 
     images, _ = next(iter(dataloader))
     image_grid = torchvision.utils.make_grid(images[:64], padding=2, normalize=True)

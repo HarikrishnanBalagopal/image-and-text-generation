@@ -13,13 +13,15 @@ import matplotlib.pyplot as plt
 from torch import nn
 from torch import optim
 from utils import mkdir_p
-from .image_generator import ImageGenerator
+from torchvision import transforms
 from datasets.celeba import CELEBA_DATASET
-from .image_discriminator import ImageDiscriminator
+from datasets.cub2011 import Cub2011Dataset
+from .image_generator import ImageGenerator64, ImageGenerator256
+from .image_discriminator import ImageDiscriminator64, ImageDiscriminator256
 
-class DCGAN(nn.Module):
+class DCGAN256(nn.Module):
     """
-    The DCGAN network.
+    The DCGAN network for 256 x 256 images.
     """
 
     def __init__(self, d_noise, d_gen, d_dis):
@@ -35,8 +37,8 @@ class DCGAN(nn.Module):
         Define each part of the GAN.
         """
 
-        self.img_gen = ImageGenerator(d_noise=self.d_noise, d_gen=self.d_gen)
-        self.img_dis = ImageDiscriminator(d_dis=self.d_dis)
+        self.img_gen = ImageGenerator256(d_noise=self.d_noise, d_gen=self.d_gen)
+        self.img_dis = ImageDiscriminator256(d_dis=self.d_dis)
 
     def forward(self, noise):
         # pylint: disable=arguments-differ
@@ -48,7 +50,38 @@ class DCGAN(nn.Module):
         pred_logits = self.img_dis(images)
         return pred_logits
 
-def train_dcgan(dcgan, dataloader, device, d_batch, num_epochs, print_every=100):
+class DCGAN64(nn.Module):
+    """
+    The DCGAN network for 64 x 64 images.
+    """
+
+    def __init__(self, d_noise, d_gen, d_dis):
+        super().__init__()
+        self.d_noise = d_noise
+        self.d_gen = d_gen
+        self.d_dis = d_dis
+
+        self.define_module()
+
+    def define_module(self):
+        """
+        Define each part of the GAN.
+        """
+
+        self.img_gen = ImageGenerator64(d_noise=self.d_noise, d_gen=self.d_gen)
+        self.img_dis = ImageDiscriminator64(d_dis=self.d_dis)
+
+    def forward(self, noise):
+        # pylint: disable=arguments-differ
+        # pylint: disable=invalid-name
+        # The arguments will differ from the base class since nn.Module is an abstract class.
+        # Short variable names like x, h and c are fine in this context.
+
+        images = self.img_gen(noise)
+        pred_logits = self.img_dis(images)
+        return pred_logits
+
+def train_dcgan(dcgan, dataloader, device, d_batch, num_epochs, print_every=100, save_results=True):
     """
     Train the DCGAN on the given dataset.
     """
@@ -84,7 +117,7 @@ def train_dcgan(dcgan, dataloader, device, d_batch, num_epochs, print_every=100)
         for i, batch in enumerate(dataloader, start=1):
             opt_d.zero_grad()
 
-            real_imgs, _ = batch
+            real_imgs = batch[0]
             real_imgs = real_imgs.to(device)
             pred_logits = dcgan.img_dis(real_imgs).squeeze()
             loss_d_real = criterion(pred_logits, real_labels)
@@ -115,13 +148,16 @@ def train_dcgan(dcgan, dataloader, device, d_batch, num_epochs, print_every=100)
                 image_grid = torchvision.utils.make_grid(fake_imgs, padding=2, normalize=True).cpu()
                 image_grid = np.transpose(image_grid, (1, 2, 0)) # convert channels first to channels last format.
                 plt.imshow(image_grid)
-                plt.savefig(os.path.join(output_images_dir, f'gen_epoch_{epoch}_iter_{i}.png'))
-                torch.save(dcgan.state_dict(), os.path.join(output_weights_dir, f'gen_epoch_{epoch}_iter_{i}.pth'))
+                if save_results:
+                    plt.savefig(os.path.join(output_images_dir, f'gen_epoch_{epoch}_iter_{i}.png'))
+                    torch.save(dcgan.state_dict(), os.path.join(output_weights_dir, f'gen_epoch_{epoch}_iter_{i}.pth'))
 
-def run_tests():
+def test_dcgan_256():
     """
-    Run tests on GAN.
+    Test DCGAN for 256 x 256 images.
     """
+    # pylint: disable=too-many-locals
+    # This number of local variables is necessary for testing.
 
     d_batch = 20
     d_noise = 100
@@ -130,7 +166,7 @@ def run_tests():
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    model = DCGAN(d_noise=d_noise, d_gen=d_gen, d_dis=d_dis).to(device)
+    model = DCGAN256(d_noise=d_noise, d_gen=d_gen, d_dis=d_dis).to(device)
     print(model)
 
     s_noise = (20, d_noise, 1, 1)
@@ -140,7 +176,75 @@ def run_tests():
 
     print('training on celeba:')
     dataloader = torch.utils.data.DataLoader(CELEBA_DATASET, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4)
-    train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=2)
+    train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=2, save_results=False)
+
+    '''
+    print('training on cub2011:')
+    d_max_seq_len = 18
+    d_image_size = 64
+    cub2011_dataset_dir = '../../../exp2/CUB_200_2011'
+    cub2011_captions_dir = '../../../exp2/cub_with_captions'
+    img_transforms = transforms.Compose([
+        transforms.Resize((d_image_size, d_image_size)),
+        transforms.ToTensor(),
+        transforms.Normalize((.5, .5, .5), (.5, .5, .5))
+    ])
+    print('reading CUB200-2011 dataset')
+    cub2011_dataset = Cub2011Dataset(dataset_dir=cub2011_dataset_dir, captions_dir=cub2011_captions_dir, img_transforms=img_transforms, d_max_seq_len=d_max_seq_len)
+    dataloader = torch.utils.data.DataLoader(cub2011_dataset, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4)
+    train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=200)
+    '''
+
+def test_dcgan_64():
+    """
+    Test DCGAN for 64 x 64 images.
+    """
+    # pylint: disable=too-many-locals
+    # This number of local variables is necessary for testing.
+
+    d_batch = 20
+    d_noise = 100
+    d_gen = 64
+    d_dis = 64
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    model = DCGAN64(d_noise=d_noise, d_gen=d_gen, d_dis=d_dis).to(device)
+    print(model)
+
+    s_noise = (20, d_noise, 1, 1)
+    noise = torch.randn(s_noise, device=device)
+    pred_logits = model(noise)
+    print('noise:', noise.size(), 'pred_logits:', pred_logits.size())
+
+    print('training on celeba:')
+    dataloader = torch.utils.data.DataLoader(CELEBA_DATASET, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4)
+    train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=2, save_results=False)
+
+    '''
+    print('training on cub2011:')
+    d_max_seq_len = 18
+    d_image_size = 64
+    cub2011_dataset_dir = '../../../exp2/CUB_200_2011'
+    cub2011_captions_dir = '../../../exp2/cub_with_captions'
+    img_transforms = transforms.Compose([
+        transforms.Resize((d_image_size, d_image_size)),
+        transforms.ToTensor(),
+        transforms.Normalize((.5, .5, .5), (.5, .5, .5))
+    ])
+    print('reading CUB200-2011 dataset')
+    cub2011_dataset = Cub2011Dataset(dataset_dir=cub2011_dataset_dir, captions_dir=cub2011_captions_dir, img_transforms=img_transforms, d_max_seq_len=d_max_seq_len)
+    dataloader = torch.utils.data.DataLoader(cub2011_dataset, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4)
+    train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=200)
+    '''
+
+def run_tests():
+    """
+    Run tests on GAN.
+    """
+
+    test_dcgan_64()
+
 
 if __name__ == '__main__':
     run_tests()
