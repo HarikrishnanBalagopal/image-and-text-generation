@@ -8,7 +8,6 @@ that can be sampled to get images. The network uses 2d convolutional layers.
 
 import os
 import torch
-import datetime
 import torchvision
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,7 +15,7 @@ import matplotlib.pyplot as plt
 from torch import nn
 from torch import optim
 
-from imgtxtgen.common.utils import mkdir_p
+from imgtxtgen.common.utils import mkdir_p, get_timestamp
 from imgtxtgen.arch1.models.image_generator import ImageGenerator64, ImageGenerator256
 from imgtxtgen.arch1.models.image_discriminator import ImageDiscriminator64, ImageDiscriminator256
 
@@ -139,7 +138,7 @@ class DCGAN64(nn.Module):
         pred_logits = self.img_dis(images)
         return pred_logits
 
-def train_dcgan(dcgan, dataloader, device, d_batch, num_epochs, print_every=100, save_results=True, config_name='generated'):
+def train_dcgan(dcgan, dataloader, device, d_batch, num_epochs, output_dir, print_every=100, save_results=True, config_name='generated'):
     """
     Train the DCGAN on the given dataset.
     """
@@ -161,9 +160,7 @@ def train_dcgan(dcgan, dataloader, device, d_batch, num_epochs, print_every=100,
 
     fixed_noise = torch.randn(s_noise, device=device)
 
-    now = datetime.datetime.now()
-    timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
-    output_dir = os.path.join('.', 'output', f'{config_name}_{timestamp}')
+    output_dir = os.path.join(output_dir, f'{config_name}_{get_timestamp()}')
     output_images_dir = os.path.join(output_dir, 'images')
     output_weights_dir = os.path.join(output_dir, 'weights')
     mkdir_p(output_images_dir)

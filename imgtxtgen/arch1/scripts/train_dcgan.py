@@ -18,16 +18,17 @@ def parse_args():
     Parse command line arguments.
     """
 
-    weights_path = os.path.join('.', 'output', 'generated_2020_01_09_03_06_33', 'weights', 'gen_epoch_200_iter_200.pth')
-    dataset_path = os.path.join('..', '..', '..', 'exp2', 'CUB_200_2011')
-    captions_path = os.path.join('..', '..', '..', 'exp2', 'cub_with_captions')
-    outputs_path = os.path.join('.', 'output', 'arch1')
+    weights_path = os.path.join('outputs', 'arch1', 'generated_2020_01_09_03_06_33', 'weights', 'gen_epoch_200_iter_200.pth')
+    dataset_path = os.path.join('..', '..', 'exp2', 'CUB_200_2011')
+    captions_path = os.path.join('..', '..', 'exp2', 'cub_with_captions')
+    outputs_path = os.path.join('outputs', 'arch1')
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('--gpu', type=str, help='ID of the GPU to use for training.', default=1)
     parser.add_argument('--weights', type=str, help='Path to DCGAN64 weights pretrained on CUB 2011 dataset.', default=weights_path)
     parser.add_argument('--dataset', type=str, help='Path to CUB2011 directory.', default=dataset_path)
     parser.add_argument('--captions', type=str, help='Path to captions directory.', default=captions_path)
-    parser.add_argument('--output', type=str, help='Directory to store training outputs.', default=captions_path)
+    parser.add_argument('--outputs', type=str, help='Directory to store training outputs.', default=outputs_path)
 
     args = parser.parse_args()
 
@@ -44,7 +45,7 @@ def train_dcgan_256(args):
     # pylint: disable=too-many-locals
     # This number of local variables is necessary for training.
 
-    gpu_id = 1
+    gpu_id = args.gpu
     d_gen = 16
     d_dis = 16
     d_batch = 16
@@ -54,7 +55,7 @@ def train_dcgan_256(args):
     pretrained_weights_64_path = args.weights
 
     device = torch.device(f'cuda:{gpu_id}' if torch.cuda.is_available() else 'cpu')
-    print('running on device:', device)
+    print('training on device:', device)
 
     print('loading pretrained weights of dcgan 64:')
     pretrained_weights_64 = torch.load(pretrained_weights_64_path)
@@ -89,7 +90,7 @@ def train_dcgan_256(args):
     ])
     cub2011_dataset = CUB2011Dataset(dataset_dir=cub2011_dataset_dir, captions_dir=cub2011_captions_dir, img_transforms=img_transforms, d_max_seq_len=d_max_seq_len)
     dataloader = torch.utils.data.DataLoader(cub2011_dataset, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4, pin_memory=True)
-    train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=200, config_name='dcgan_256_cub2011_using_pretrained_64')
+    train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=200, output_dir=args.outputs, config_name='dcgan_256_cub2011_using_pretrained_64')
 
 if __name__ == '__main__':
     train_dcgan_256(parse_args())
