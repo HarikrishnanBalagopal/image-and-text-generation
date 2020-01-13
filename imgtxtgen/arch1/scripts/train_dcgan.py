@@ -24,7 +24,9 @@ def parse_args():
     outputs_path = os.path.join('outputs', 'arch1')
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--gpu', type=str, help='ID of the GPU to use for training.', default=1)
+    parser.add_argument('--gpu', type=int, help='ID of the GPU to use for training.', default=1)
+    parser.add_argument('--batch', type=int, help='Batch size.', default=16)
+    parser.add_argument('--epochs', type=int, help='Number of epochs to train for.', default=200)
     parser.add_argument('--weights', type=str, help='Path to DCGAN64 weights pretrained on CUB 2011 dataset.', default=weights_path)
     parser.add_argument('--dataset', type=str, help='Path to CUB2011 directory.', default=dataset_path)
     parser.add_argument('--captions', type=str, help='Path to captions directory.', default=captions_path)
@@ -43,22 +45,23 @@ def train_dcgan_256(args):
     This train DCGAN256 on CUB 2011 dataset using weights from DCGAN64 model pretrained on the same dataset.
     """
     # pylint: disable=too-many-locals
-    # This number of local variables is necessary for training.
+    # pylint: disable=bad-whitespace
+    # This number of local variables is necessary for training. The whitespace makes it more readable.
 
-    gpu_id = args.gpu
-    d_gen = 16
-    d_dis = 16
-    d_batch = 16
-    d_noise = 100
-    d_image_size = 256
+    d_gen         = 16
+    d_dis         = 16
+    d_noise       = 100
     d_max_seq_len = 18
-    pretrained_weights_64_path = args.weights
+    d_image_size  = 256
+    gpu_id        = args.gpu
+    d_batch       = args.batch
+    num_epochs    = args.epochs
 
     device = torch.device(f'cuda:{gpu_id}' if torch.cuda.is_available() else 'cpu')
     print('training on device:', device)
 
     print('loading pretrained weights of dcgan 64:')
-    pretrained_weights_64 = torch.load(pretrained_weights_64_path)
+    pretrained_weights_64 = torch.load(args.weights)
     # print('dcgan 64 weights:')
     # for k, v in pretrained_weights_64.items():
     #     print(f'{k:40}|{str(v.size()):40}')
@@ -90,7 +93,7 @@ def train_dcgan_256(args):
     ])
     cub2011_dataset = CUB2011Dataset(dataset_dir=cub2011_dataset_dir, captions_dir=cub2011_captions_dir, img_transforms=img_transforms, d_max_seq_len=d_max_seq_len)
     dataloader = torch.utils.data.DataLoader(cub2011_dataset, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4, pin_memory=True)
-    train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=200, output_dir=args.outputs, config_name='dcgan_256_cub2011_using_pretrained_64')
+    train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=num_epochs, output_dir=args.outputs, config_name='dcgan_256_cub2011_using_pretrained_64')
 
 if __name__ == '__main__':
     train_dcgan_256(parse_args())
