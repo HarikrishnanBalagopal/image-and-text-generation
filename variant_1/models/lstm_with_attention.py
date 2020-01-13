@@ -6,7 +6,7 @@ The image features must contain both local and global features.
 
 import torch
 import torch.nn as nn
-from global_attention import GlobalAttention
+from .global_attention import GlobalAttention
 
 def _arg_max(logits):
     return torch.max(logits, dim=1)[1]
@@ -19,7 +19,7 @@ class LSTMWithAttention(nn.Module):
     # pylint: disable=too-many-instance-attributes
     # The attributes are necessary.
 
-    def __init__(self, d_vocab, d_embed, d_annotations, d_hidden, d_max_seq_len, d_global_image_features):
+    def __init__(self, d_vocab, d_embed, d_annotations, d_hidden, d_max_seq_len, d_global_image_features, end_token=0, start_token=1):
         # pylint: disable=too-many-arguments
         # The arguments are necessary.
 
@@ -31,8 +31,8 @@ class LSTMWithAttention(nn.Module):
         self.d_hidden = d_hidden
         self.d_max_seq_len = d_max_seq_len
         self.d_global_image_features = d_global_image_features
-        self.end_token = 0
-        self.start_token = 1
+        self.end_token = end_token
+        self.start_token = start_token
         self.define_module()
 
     def define_module(self):
@@ -67,17 +67,19 @@ class LSTMWithAttention(nn.Module):
         """
         # pylint: disable=arguments-differ
         # pylint: disable=invalid-name
+        # pylint: disable=bad-whitespace
         # The arguments will differ from the base class since nn.Module is an abstract class.
-        # Short variable names like x, h and c are fine in this context.
+        # Short variable names like x, h and c are fine in this context. The whitespace makes it more readable.
 
         local_image_features, global_image_features = image_features
-        d_batch = local_image_features.size(0)
-        local_image_features = local_image_features.view(d_batch, self.d_annotations, -1)
 
-        x = torch.full((d_batch,), self.start_token, dtype=torch.long)
-        captions = torch.full((d_batch, self.d_max_seq_len), self.end_token, dtype=torch.long)
-        captions_logits = torch.empty(d_batch, self.d_vocab, self.d_max_seq_len)
-        attn_maps = torch.empty(d_batch, self.d_max_seq_len, 17, 17)
+        d_batch              = local_image_features.size(0)
+        device               = local_image_features.device
+        local_image_features = local_image_features.view(d_batch, self.d_annotations, -1)
+        x                    = torch.full((d_batch,)                   , self.start_token, dtype=torch.long, device=device)
+        captions             = torch.full((d_batch, self.d_max_seq_len), self.end_token  , dtype=torch.long, device=device)
+        captions_logits      = torch.empty(d_batch, self.d_vocab, self.d_max_seq_len                       , device=device)
+        attn_maps            = torch.empty(d_batch, self.d_max_seq_len, 17, 17                             , device=device)
 
         h, c = self.fc_h(global_image_features), self.fc_c(global_image_features)
 

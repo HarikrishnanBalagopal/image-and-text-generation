@@ -99,6 +99,7 @@ class CUB2011Dataset(Dataset):
         self.split = split
         self.dict = Dictionary()
         self.end_token = self.dict.add_word('<eos>')
+        self.start_token = self.dict.add_word('<sos>')
 
         if not self._check_integrity():
             raise RuntimeError('Dataset not found or corrupted.')
