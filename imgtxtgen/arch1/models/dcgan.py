@@ -15,12 +15,10 @@ import matplotlib.pyplot as plt
 
 from torch import nn
 from torch import optim
-from utils import mkdir_p
-from torchvision import transforms
-from datasets.cub2011 import CUB2011Dataset
-from datasets.celeba import get_celeba_dataset
-from .image_generator import ImageGenerator64, ImageGenerator256
-from .image_discriminator import ImageDiscriminator64, ImageDiscriminator256
+
+from imgtxtgen.common.utils import mkdir_p
+from imgtxtgen.arch1.models.image_generator import ImageGenerator64, ImageGenerator256
+from imgtxtgen.arch1.models.image_discriminator import ImageDiscriminator64, ImageDiscriminator256
 
 class DCGAN256(nn.Module):
     """
@@ -46,10 +44,57 @@ class DCGAN256(nn.Module):
     def load_weights_from_dcgan_64(self, weights_64):
         """
         Load relevant weights from pretrained DCGAN64 model.
+        loading pretrained weights of dcgan 64:
         """
+        layers_from_to_mapping = {
+            'img_gen.model.0.weight'                    : 'img_gen.model.0.weight',
+            'img_gen.model.1.weight'                    : 'img_gen.model.1.weight',
+            'img_gen.model.1.bias'                      : 'img_gen.model.1.bias',
+            'img_gen.model.1.running_mean'              : 'img_gen.model.1.running_mean',
+            'img_gen.model.1.running_var'               : 'img_gen.model.1.running_var',
+            'img_gen.model.1.num_batches_tracked'       : 'img_gen.model.1.num_batches_tracked',
+            'img_gen.model.3.weight'                    : 'img_gen.model.3.weight',
+            'img_gen.model.4.weight'                    : 'img_gen.model.4.weight',
+            'img_gen.model.4.bias'                      : 'img_gen.model.4.bias',
+            'img_gen.model.4.running_mean'              : 'img_gen.model.4.running_mean',
+            'img_gen.model.4.running_var'               : 'img_gen.model.4.running_var',
+            'img_gen.model.4.num_batches_tracked'       : 'img_gen.model.4.num_batches_tracked',
+            'img_gen.model.6.weight'                    : 'img_gen.model.6.weight',
+            'img_gen.model.7.weight'                    : 'img_gen.model.7.weight',
+            'img_gen.model.7.bias'                      : 'img_gen.model.7.bias',
+            'img_gen.model.7.running_mean'              : 'img_gen.model.7.running_mean',
+            'img_gen.model.7.running_var'               : 'img_gen.model.7.running_var',
+            'img_gen.model.7.num_batches_tracked'       : 'img_gen.model.7.num_batches_tracked',
+            'img_gen.model.9.weight'                    : 'img_gen.model.9.weight',
+            'img_gen.model.10.weight'                   : 'img_gen.model.10.weight',
+            'img_gen.model.10.bias'                     : 'img_gen.model.10.bias',
+            'img_gen.model.10.running_mean'             : 'img_gen.model.10.running_mean',
+            'img_gen.model.10.running_var'              : 'img_gen.model.10.running_var',
+            'img_gen.model.10.num_batches_tracked'      : 'img_gen.model.10.num_batches_tracked',
+
+            'img_dis.model.2.weight'                    : 'img_dis.model.8.weight',
+            'img_dis.model.3.weight'                    : 'img_dis.model.9.weight',
+            'img_dis.model.3.bias'                      : 'img_dis.model.9.bias',
+            'img_dis.model.3.running_mean'              : 'img_dis.model.9.running_mean',
+            'img_dis.model.3.running_var'               : 'img_dis.model.9.running_var',
+            'img_dis.model.3.num_batches_tracked'       : 'img_dis.model.9.num_batches_tracked',
+            'img_dis.model.5.weight'                    : 'img_dis.model.11.weight',
+            'img_dis.model.6.weight'                    : 'img_dis.model.12.weight',
+            'img_dis.model.6.bias'                      : 'img_dis.model.12.bias',
+            'img_dis.model.6.running_mean'              : 'img_dis.model.12.running_mean',
+            'img_dis.model.6.running_var'               : 'img_dis.model.12.running_var',
+            'img_dis.model.6.num_batches_tracked'       : 'img_dis.model.12.num_batches_tracked',
+            'img_dis.model.8.weight'                    : 'img_dis.model.14.weight',
+            'img_dis.model.9.weight'                    : 'img_dis.model.15.weight',
+            'img_dis.model.9.bias'                      : 'img_dis.model.15.bias',
+            'img_dis.model.9.running_mean'              : 'img_dis.model.15.running_mean',
+            'img_dis.model.9.running_var'               : 'img_dis.model.15.running_var',
+            'img_dis.model.9.num_batches_tracked'       : 'img_dis.model.15.num_batches_tracked',
+            'img_dis.model.11.weight'                   : 'img_dis.model.17.weight'
+        }
 
         model_dict = self.state_dict()
-        filtered_dict = {k: v for k, v in weights_64.items() if k in model_dict}
+        filtered_dict = {layers_from_to_mapping[k]: v for k, v in weights_64.items() if k in layers_from_to_mapping}
         model_dict.update(filtered_dict)
         self.load_state_dict(model_dict)
 
@@ -188,112 +233,3 @@ def train_dcgan(dcgan, dataloader, device, d_batch, num_epochs, print_every=100,
                     plt.legend()
                     plt.savefig(os.path.join(output_images_dir, f'losses_epoch_{epoch}_iter_{i}.png'))
                     plt.close()
-
-def test_dcgan_256():
-    """
-    Test DCGAN for 256 x 256 images.
-    """
-    # pylint: disable=too-many-locals
-    # This number of local variables is necessary for testing.
-
-    gpu_id = 1
-    d_batch = 16
-    d_noise = 100
-    d_gen = 64
-    d_dis = 64
-    d_image_size = 256
-    # pretrained_weights_64_path = os.path.join('.', 'output', 'generated_2020_01_09_03_06_33', 'weights', 'gen_epoch_200_iter_200.pth')
-    # print('loading pretrained weights of dcgan 64:')
-    # pretrained_weights_64 = torch.load(pretrained_weights_64_path)
-    # for k, v in pretrained_weights_64.items():
-        # print(f'{k:40}|{str(v.size()):40}')
-
-    device = torch.device(f'cuda:{gpu_id}' if torch.cuda.is_available() else 'cpu')
-
-    model = DCGAN256(d_noise=d_noise, d_gen=d_gen, d_dis=d_dis) #.to(device)
-    # print('dcgan 256 weights:')
-    # model_dict = model.state_dict()
-    # for k, v in model_dict.items():
-        # print(f'{k:40}|{str(v.size()):40}')
-    # return
-
-    # model.load_weights_from_dcgan_64(pretrained_weights_64)
-    # print('loaded weights from dcgan 64')
-
-    s_noise = (d_batch, d_noise, 1, 1)
-    noise = torch.randn(s_noise, device=device)
-    pred_logits = model(noise)
-    print('noise:', noise.size(), 'pred_logits:', pred_logits.size())
-
-    # print('training on celeba:')
-    # celeba_dataset = get_celeba_dataset(d_image_size=d_image_size)
-    # dataloader = torch.utils.data.DataLoader(celeba_dataset, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4)
-    # train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=2, save_results=False, config_name='dcgan_256_celeba')
-
-    print('training on cub2011:')
-    d_max_seq_len = 18
-    cub2011_dataset_dir = '../../../exp2/CUB_200_2011'
-    cub2011_captions_dir = '../../../exp2/cub_with_captions'
-    img_transforms = transforms.Compose([
-        transforms.Resize((d_image_size, d_image_size)),
-        transforms.ToTensor(),
-        transforms.Normalize((.5, .5, .5), (.5, .5, .5))
-    ])
-    cub2011_dataset = CUB2011Dataset(dataset_dir=cub2011_dataset_dir, captions_dir=cub2011_captions_dir, img_transforms=img_transforms, d_max_seq_len=d_max_seq_len)
-    dataloader = torch.utils.data.DataLoader(cub2011_dataset, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4, pin_memory=True)
-    train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=200, config_name='dcgan_256_cub2011')
-
-def test_dcgan_64():
-    """
-    Test DCGAN for 64 x 64 images.
-    """
-    # pylint: disable=too-many-locals
-    # This number of local variables is necessary for testing.
-
-    gpu_id = 1
-    d_batch = 20 # works with 20
-    d_noise = 100 # failed with 512, works with 100
-    d_gen = 256 # works with 64
-    d_dis = 256 # works with 64
-    d_image_size = 64
-    print_every = 25
-
-    device = torch.device(f'cuda:{gpu_id}' if torch.cuda.is_available() else 'cpu')
-
-    model = DCGAN64(d_noise=d_noise, d_gen=d_gen, d_dis=d_dis).to(device)
-    print(model)
-
-    # s_noise = (d_batch, d_noise, 1, 1)
-    # noise = torch.randn(s_noise, device=device)
-    # pred_logits = model(noise)
-    # print('noise:', noise.size(), 'pred_logits:', pred_logits.size())
-
-    # print('training on celeba:')
-    # celeba_dataset = get_celeba_dataset(d_image_size=d_image_size)
-    # dataloader = torch.utils.data.DataLoader(celeba_dataset, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4)
-    # train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=2, save_results=False, config_name='dcgan_64_celeba')
-
-    print('training on cub2011:')
-    d_max_seq_len = 18
-    cub2011_dataset_dir = '../../../exp2/CUB_200_2011'
-    cub2011_captions_dir = '../../../exp2/cub_with_captions'
-    img_transforms = transforms.Compose([
-        transforms.Resize((d_image_size, d_image_size)),
-        transforms.ToTensor(),
-        transforms.Normalize((.5, .5, .5), (.5, .5, .5))
-    ])
-    cub2011_dataset = CUB2011Dataset(dataset_dir=cub2011_dataset_dir, captions_dir=cub2011_captions_dir, img_transforms=img_transforms, d_max_seq_len=d_max_seq_len)
-    dataloader = torch.utils.data.DataLoader(cub2011_dataset, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4)
-    train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=200, print_every=print_every, config_name='dcgan_64_cub2011')
-
-def run_tests():
-    """
-    Run tests on GAN.
-    """
-
-    test_dcgan_64()
-    # test_dcgan_256()
-
-
-if __name__ == '__main__':
-    run_tests()
