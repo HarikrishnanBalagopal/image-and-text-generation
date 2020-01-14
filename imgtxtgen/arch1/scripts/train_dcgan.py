@@ -10,8 +10,10 @@ import torch
 
 from torchvision import transforms
 from argparse import ArgumentParser
+from torch.utils.data import DataLoader
 from imgtxtgen.common.datasets.cub2011 import CUB2011Dataset
 from imgtxtgen.arch1.models.dcgan import DCGAN256, train_dcgan
+from imgtxtgen.common.utils import get_standard_img_transforms
 
 def parse_args():
     """
@@ -70,11 +72,7 @@ def train_dcgan_256(args):
     model.load_weights_from_dcgan_64(pretrained_weights_64)
 
     print('loading cub2011:')
-    img_transforms = transforms.Compose([
-        transforms.Resize((d_image_size, d_image_size)),
-        transforms.ToTensor(),
-        transforms.Normalize((.5, .5, .5), (.5, .5, .5))
-    ])
+    img_transforms = get_standard_img_transforms(d_image_size)
 
     dataset_opts = {'img_transforms': img_transforms, 'd_max_seq_len': d_max_seq_len}
     if args.dataset:
@@ -83,7 +81,7 @@ def train_dcgan_256(args):
         dataset_opts.captions_dir = args.captions
 
     cub2011_dataset = CUB2011Dataset(**dataset_opts)
-    dataloader = torch.utils.data.DataLoader(cub2011_dataset, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4, pin_memory=True)
+    dataloader = DataLoader(cub2011_dataset, batch_size=d_batch, shuffle=True, drop_last=True, num_workers=4, pin_memory=True)
 
     print('training on cub2011:')
     train_dcgan(model, dataloader, device=device, d_batch=d_batch, num_epochs=num_epochs, output_dir=args.outputs, print_every=print_every, config_name='dcgan_256_cub2011_using_pretrained_64')

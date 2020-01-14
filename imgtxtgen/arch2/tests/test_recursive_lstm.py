@@ -5,13 +5,13 @@ Tests for RecursiveLSTM.
 import torch
 
 from torch.optim import Adam
-from torch.nn import CrossEntropyLoss
+from torch.nn import NLLLoss
 from imgtxtgen.arch2.models.recursive_lstm import RecursiveLSTM
 
 def test_recursive_lstm():
     """
     Run tests for RecursiveLSTM.
-    Trains on a small dataset.
+    Trains on a small dataset using MLE.
     """
     # pylint: disable=too-many-locals
     # This number of local variables is necessary since this test is also training the model.
@@ -33,15 +33,18 @@ def test_recursive_lstm():
     targets = model.prepare_targets(targets)
     assert targets.size() == (d_batch, opts['d_max_seq_len'])
 
-    loss_fn = CrossEntropyLoss()
+    loss_fn = NLLLoss()
     optimizer = Adam(model.parameters(), lr=0.001)
 
     for _ in range(1, num_iterations+1):
-        captions, captions_logits = model(image_features)
-        loss = loss_fn(captions_logits, targets)
+        captions, captions_log_probs, hiddens = model(image_features)
 
         assert captions.size() == (d_batch, opts['d_max_seq_len'])
-        assert captions_logits.size() == (d_batch, opts['d_vocab'], opts['d_max_seq_len'])
+        assert captions_log_probs.size() == (d_batch, opts['d_vocab'], opts['d_max_seq_len'])
+        assert hiddens[0].size() == (d_batch, opts['d_hidden'], opts['d_max_seq_len'])
+        assert hiddens[1].size() == (d_batch, opts['d_hidden'], opts['d_max_seq_len'])
+
+        loss = loss_fn(captions_log_probs, targets)
 
         optimizer.zero_grad()
         loss.backward()
