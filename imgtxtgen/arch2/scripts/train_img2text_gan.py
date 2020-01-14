@@ -40,7 +40,7 @@ def train():
     print('constructing Img2TextGAN model:')
     model = Img2TextGAN(d_vocab, d_embed, d_hidden, d_max_seq_len, d_image_features, d_noise, end_token=0, start_token=1).to(device)
 
-    train_img2txt_gen(model, dataloader, d_batch, device, num_rollouts=16, num_epochs=num_epochs)
+    train_img2txt_gen(model, dataloader, d_batch, device, num_rollouts=16, num_epochs=num_epochs, debug_dataset=cub2011_dataset)
 
 if __name__ == '__main__':
     train()

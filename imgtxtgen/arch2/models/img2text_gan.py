@@ -60,7 +60,7 @@ class Img2TextGAN(nn.Module):
         preds = self.dis(captions)
         return captions, preds
 
-def train_img2txt_gen(model, dataset, d_batch, device, num_rollouts=16, num_epochs=20):
+def train_img2txt_gen(model, dataset, d_batch, device, num_rollouts=16, num_epochs=20, debug_dataset=None, print_every=10):
     """
     Train the Img2TextGAN using reinforcement learning.
     num_rollouts : Number of times to rollout at each time instance.
@@ -82,7 +82,6 @@ def train_img2txt_gen(model, dataset, d_batch, device, num_rollouts=16, num_epoc
         print('epoch:', epoch)
 
         for i, batch in enumerate(dataset):
-            print('i:', i)
 
             images, real_captions, _ = batch
             images, real_captions = images.to(device), real_captions.to(device)
@@ -92,6 +91,11 @@ def train_img2txt_gen(model, dataset, d_batch, device, num_rollouts=16, num_epoc
 
             with torch.no_grad():
                 fake_captions, fake_captions_log_probs, hiddens = model.gen(images, noise)
+
+            if i % print_every == 0 and debug_dataset is not None:
+                print('i:', i)
+                print('real_captions:', debug_dataset.dict.decode(real_captions[0]))
+                print('fake_captions:', debug_dataset.dict.decode(fake_captions[0]))
 
             loss_d_real = criterion(model.dis(real_captions), real_labels)
             loss_d_fake = criterion(model.dis(fake_captions), fake_labels)
