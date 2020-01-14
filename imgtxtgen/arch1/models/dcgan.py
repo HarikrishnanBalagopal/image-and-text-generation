@@ -157,7 +157,7 @@ def train_dcgan(dcgan, dataloader, device, d_batch, num_epochs, output_dir, prin
     real_labels = torch.full((d_batch,), 1, device=device)
     fake_labels = torch.full((d_batch,), 0, device=device)
 
-    criterion = nn.BCELoss()
+    criterion = nn.BCEWithLogitsLoss()
     opt_g = optim.Adam(dcgan.img_gen.parameters(), lr=learning_rate, betas=(beta1, 0.999))
     opt_d = optim.Adam(dcgan.img_dis.parameters(), lr=learning_rate, betas=(beta1, 0.999))
 

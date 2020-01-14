@@ -74,7 +74,7 @@ def train_img2txt_gen(model, dataset, d_batch, device, num_rollouts=16, num_epoc
     opt_g = Adam(model.gen.parameters(), lr=learning_rate, betas=(beta1, 0.999))
     opt_d = Adam(model.dis.parameters(), lr=learning_rate, betas=(beta1, 0.999))
 
-    criterion = nn.BCELoss()
+    criterion = nn.BCEWithLogitsLoss()
 
     model.train()
 

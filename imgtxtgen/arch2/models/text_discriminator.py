@@ -38,5 +38,5 @@ class TextDiscriminator(nn.Module):
 
         x = self.embed(x)
         _, (h, _) = self.rnn(x)
-        x = self.fc_logits(h)
+        x = self.fc_logits(h.squeeze()).squeeze()
         return x

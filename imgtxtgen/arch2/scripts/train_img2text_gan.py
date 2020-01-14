@@ -22,7 +22,7 @@ def train():
     d_noise          = 100
     d_max_seq_len    = 18
     d_image_size     = 256
-    gpu_id           = 1
+    gpu_id           = 0
     d_batch          = 20
     num_epochs       = 100
 
