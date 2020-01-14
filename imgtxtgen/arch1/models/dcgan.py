@@ -218,7 +218,7 @@ def train_dcgan(dcgan, dataloader, device, d_batch, num_epochs, output_dir, prin
                     fake_imgs = dcgan.img_gen(fixed_noise)
                     pred_logits = dcgan.img_dis(fake_imgs).squeeze()
                     loss_g = criterion(pred_logits, real_labels)
-                print('evaluation loss_g:', loss_g)
+                print('evaluation loss_g:', loss_g.item())
                 gen_eval_losses.append(loss_g.item())
                 image_grid = torchvision.utils.make_grid(fake_imgs, padding=2, normalize=True).cpu()
                 image_grid = np.transpose(image_grid, (1, 2, 0)) # convert channels first to channels last format.

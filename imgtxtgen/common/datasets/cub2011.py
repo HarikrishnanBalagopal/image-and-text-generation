@@ -15,10 +15,10 @@ import torch
 import tarfile
 import pandas as pd
 
-from torchvision import transforms
 from torch.utils.data import Dataset
 from torchvision.datasets.utils import download_url
 from torchvision.datasets.folder import default_loader
+from imgtxtgen.common.datasets.config import CUB_200_2011_DATASET_PATH, CUB_200_2011_DATASET_CAPTIONS_PATH
 
 def download_images(download_dir):
     """
@@ -79,18 +79,17 @@ class CUB2011Dataset(Dataset):
     # pylint: disable=too-many-instance-attributes
     # The attributes are necessary for this dataset.
 
-    def __init__(self, dataset_dir, captions_dir, split='train', d_max_seq_len=18, img_transforms=None, loader=default_loader):
+    def __init__(self, dataset_dir=CUB_200_2011_DATASET_PATH, captions_dir=CUB_200_2011_DATASET_CAPTIONS_PATH, split='train', d_max_seq_len=18, img_transforms=None, loader=default_loader):
         # pylint: disable=too-many-arguments
         # The arguments are necessary to construct this dataset.
 
         super().__init__()
         self.dataset_dir = os.path.expanduser(dataset_dir)
-        assert os.path.isdir(self.dataset_dir), f'The dataset path {self.dataset_dir} is not a directory.'
-
         self.images_dir = os.path.join(self.dataset_dir, 'images')
-        assert os.path.isdir(self.dataset_dir), f'The images path {self.images_dir} is not a directory.'
+        self.captions_dir = captions_dir
 
-        self.captions_dir = os.path.join(captions_dir, 'text_c10')
+        assert os.path.isdir(self.dataset_dir), f'The dataset path {self.dataset_dir} is not a directory.'
+        assert os.path.isdir(self.dataset_dir), f'The images path {self.images_dir} is not a directory.'
         assert os.path.isdir(self.captions_dir), f'The captions path {self.captions_dir} is not a directory.'
 
         self.d_max_seq_len = d_max_seq_len
@@ -188,37 +187,3 @@ class CUB2011Dataset(Dataset):
         class_id = sample.target - 1  # Make class ids start at 0 (starts at 1 by default)
 
         return img, caption, class_id
-
-def run_tests():
-    """
-    Run tests for CUB2011Dataset.
-    """
-
-    print('Loading the CUB2011 dataset:')
-    d_batch = 20
-    d_image_size = 64
-    dataset_dir = '../../../../exp2/CUB_200_2011'
-    captions_dir = '../../../../exp2/cub_with_captions'
-    img_transforms = transforms.Compose([
-        transforms.Resize((d_image_size, d_image_size)),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    ])
-
-    cub2011_dataset = CUB2011Dataset(dataset_dir=dataset_dir, captions_dir=captions_dir, img_transforms=img_transforms)
-    print(cub2011_dataset)
-
-    dataloader = torch.utils.data.DataLoader(cub2011_dataset, batch_size=d_batch, shuffle=True, num_workers=4)
-
-    for i, batch in enumerate(dataloader):
-        if i >= 4:
-            break
-
-        imgs, captions, class_ids = batch
-
-        print('imgs:', imgs.size())
-        print('captions:', captions.size())
-        print('class_ids:', class_ids.size(), class_ids)
-
-if __name__ == '__main__':
-    run_tests()
