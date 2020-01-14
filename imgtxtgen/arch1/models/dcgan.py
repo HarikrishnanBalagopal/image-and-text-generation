@@ -129,6 +129,9 @@ class DCGAN64(nn.Module):
         self.img_dis = ImageDiscriminator64(d_dis=self.d_dis)
 
     def forward(self, noise):
+        """
+        Run the network forward.
+        """
         # pylint: disable=arguments-differ
         # pylint: disable=invalid-name
         # The arguments will differ from the base class since nn.Module is an abstract class.

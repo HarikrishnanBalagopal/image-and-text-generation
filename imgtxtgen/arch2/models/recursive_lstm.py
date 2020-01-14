@@ -1,25 +1,24 @@
 """
-Module for a RNN model that uses global attention (similar to show attend tell paper).
-Uses a LSTM to generate the caption based on image features.
-The image features must contain both local and global features.
+Module for a RNN model that uses its own output from previous timestep as input at current timestep.
+Uses a LSTM to generate text based on a condition.
 """
 
 import torch
 import torch.nn as nn
-from imgtxtgen.common.global_attention import GlobalAttention
+from torch.distributions.categorical import Categorical
 
-def _arg_max(logits):
-    return torch.max(logits, dim=1)[1]
+def _sample_from(logits):
+    return Categorical(logits=logits).sample()
 
-class LSTMWithAttention(nn.Module):
+class RecursiveLSTM(nn.Module):
     """
-    LSTMWithAttention is a LSTM that runs on it's own output at each time step.
-    It also takes image features and uses global attention for generating the caption.
+    RecursiveLSTM is a LSTM that uses output at t - 1 as input at t.
+    Generates text based on a condition.
     """
     # pylint: disable=too-many-instance-attributes
     # The attributes are necessary.
 
-    def __init__(self, d_vocab, d_embed, d_annotations, d_hidden, d_max_seq_len, d_global_image_features, end_token=0, start_token=1):
+    def __init__(self, d_vocab, d_embed, d_annotations, d_hidden, d_max_seq_len, d_condition, end_token=0, start_token=1):
         # pylint: disable=too-many-arguments
         # The arguments are necessary.
 
@@ -30,7 +29,7 @@ class LSTMWithAttention(nn.Module):
         self.d_input = self.d_embed + self.d_annotations
         self.d_hidden = d_hidden
         self.d_max_seq_len = d_max_seq_len
-        self.d_global_image_features = d_global_image_features
+        self.d_condition = d_condition
         self.end_token = end_token
         self.start_token = start_token
         self.define_module()
@@ -40,12 +39,11 @@ class LSTMWithAttention(nn.Module):
         Define each part of the LSTMWithAttention module.
         """
 
-        self.fc_h = nn.Linear(self.d_global_image_features, self.d_hidden)
-        self.fc_c = nn.Linear(self.d_global_image_features, self.d_hidden)
+        self.fc_h = nn.Linear(self.d_condition, self.d_hidden)
+        self.fc_c = nn.Linear(self.d_condition, self.d_hidden)
         self.embed = nn.Embedding(num_embeddings=self.d_vocab, embedding_dim=self.d_embed)
         self.lstm_cell = nn.LSTMCell(input_size=self.d_input, hidden_size=self.d_hidden)
         self.fc_logits = nn.Linear(self.d_hidden, self.d_vocab)
-        self.attn = GlobalAttention(d_query=self.d_hidden, d_annotations=self.d_annotations)
 
     def prepare_targets(self, targets):
         """
@@ -59,11 +57,10 @@ class LSTMWithAttention(nn.Module):
             target_tensor[i, :len(target)] = torch.LongTensor(target)
         return target_tensor
 
-    def forward(self, image_features):
+    def forward(self, condition):
         """
-        Run the LSTM forward, feeding the previous output as input using attention at each step.
-        local_image_features : d_batch x d_annotations x 17 x 17
-        global_image_features: d_batch x d_annotations
+        Run the LSTM forward, feeding the previous output as input at each step.
+        condition : d_batch x d_annotations
         """
         # pylint: disable=arguments-differ
         # pylint: disable=invalid-name
@@ -71,31 +68,23 @@ class LSTMWithAttention(nn.Module):
         # The arguments will differ from the base class since nn.Module is an abstract class.
         # Short variable names like x, h and c are fine in this context. The whitespace makes it more readable.
 
-        local_image_features, global_image_features = image_features
-
-        d_batch              = local_image_features.size(0)
-        device               = local_image_features.device
-        local_image_features = local_image_features.view(d_batch, self.d_annotations, -1)
+        d_batch              = condition.size(0)
+        device               = condition.device
         x                    = torch.full((d_batch,)                   , self.start_token, dtype=torch.long, device=device)
         captions             = torch.full((d_batch, self.d_max_seq_len), self.end_token  , dtype=torch.long, device=device)
         captions_logits      = torch.empty(d_batch, self.d_vocab, self.d_max_seq_len                       , device=device)
-        attn_maps            = torch.empty(d_batch, self.d_max_seq_len, 17, 17                             , device=device)
 
-        h, c = self.fc_h(global_image_features), self.fc_c(global_image_features)
+        h, c = self.fc_h(condition), self.fc_c(condition)
 
         for t in range(self.d_max_seq_len):
-            contexts, attn_weights = self.attn(h, local_image_features)
-            attn_maps[:, t] = attn_weights.view(d_batch, 17, 17)
-
             x = self.embed(x)
-            x = torch.cat((x, contexts), dim=1)
             h, c = self.lstm_cell(x, (h, c))
             x = self.fc_logits(h)
             captions_logits[:, :, t] = x
-            x = _arg_max(x)
+            x = _sample_from(x)
             captions[:, t] = x
 
-        return captions, captions_logits, attn_maps
+        return captions, captions_logits
 
 def run_tests():
     """
@@ -118,7 +107,7 @@ def run_tests():
         [2, 2, 2, 4, 3, 3]
     ]
 
-    model = LSTMWithAttention(**opts)
+    model = RecursiveLSTM(**opts)
     print(model)
 
     targets = model.prepare_targets(targets)
