@@ -29,7 +29,7 @@ def get_timestamp():
     now = datetime.datetime.now()
     return now.strftime('%Y_%m_%d_%H_%M_%S')
 
-def get_standard_img_transforms(d_image_size):
+def get_standard_img_transforms(d_image_size=64):
     """
     Transforms to resize, convert to tensor and normalize images.
     """

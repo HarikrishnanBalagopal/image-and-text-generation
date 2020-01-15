@@ -175,35 +175,41 @@ def train_dcgan(dcgan, dataloader, device, d_batch, num_epochs, output_dir, prin
 
     for epoch in range(1, num_epochs+1):
         print('epoch:', epoch)
-
         running_loss_g = 0
         running_loss_d = 0
-        for i, batch in enumerate(dataloader, start=1):
-            opt_d.zero_grad()
 
+        for i, batch in enumerate(dataloader, start=1):
+            # Get batch.
             real_imgs = batch[0]
             real_imgs = real_imgs.to(device)
-            pred_logits = dcgan.img_dis(real_imgs).squeeze()
-            loss_d_real = criterion(pred_logits, real_labels)
-            loss_d_real.backward()
+            with torch.no_grad():
+                noise = torch.randn(s_noise, device=device)
+                fake_imgs = dcgan.img_gen(noise)
 
-            noise = torch.randn(s_noise, device=device)
-            fake_imgs = dcgan.img_gen(noise)
-            pred_logits = dcgan.img_dis(fake_imgs).squeeze()
-            loss_d_fake = criterion(pred_logits, fake_labels)
-            loss_d_fake.backward(retain_graph=True)
+            # Train discriminator
+            real_logits = dcgan.img_dis(real_imgs).squeeze()
+            fake_logits = dcgan.img_dis(fake_imgs).squeeze()
 
+            loss_d_real = criterion(real_logits, real_labels)
+            loss_d_fake = criterion(fake_logits, fake_labels)
+            loss_d = loss_d_real + loss_d_fake
+
+            opt_d.zero_grad()
+            loss_d.backward()
             opt_d.step()
 
+            # Train generator
+            noise = torch.randn(s_noise, device=device)
+            fake_imgs = dcgan.img_gen(noise)
+            fake_logits = dcgan.img_dis(fake_imgs).squeeze()
+            loss_g = criterion(fake_logits, real_labels)
+
             opt_g.zero_grad()
-
-            loss_g = criterion(pred_logits, real_labels)
             loss_g.backward()
-
             opt_g.step()
 
             running_loss_g += loss_g.item()
-            running_loss_d += loss_d_real.item() + loss_d_fake.item()
+            running_loss_d += loss_d.item()
 
             if i % print_every == 0:
                 running_loss_g /= print_every
@@ -213,7 +219,6 @@ def train_dcgan(dcgan, dataloader, device, d_batch, num_epochs, output_dir, prin
                 dis_train_losses.append(running_loss_d)
                 running_loss_g = 0
                 running_loss_d = 0
-
                 with torch.no_grad():
                     fake_imgs = dcgan.img_gen(fixed_noise)
                     pred_logits = dcgan.img_dis(fake_imgs).squeeze()

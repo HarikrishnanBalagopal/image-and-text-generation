@@ -16,8 +16,10 @@ import tarfile
 import pandas as pd
 
 from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
 from torchvision.datasets.utils import download_url
 from torchvision.datasets.folder import default_loader
+from imgtxtgen.common.utils import get_standard_img_transforms
 from imgtxtgen.common.datasets.config import CUB_200_2011_DATASET_PATH, CUB_200_2011_DATASET_CAPTIONS_PATH
 
 def download_images(download_dir):
@@ -33,6 +35,37 @@ def download_images(download_dir):
 
     with tarfile.open(os.path.join(download_dir, filename), "r:gz") as tar:
         tar.extractall(path=download_dir)
+
+def collate_fn(data):
+    """
+    Creates mini-batch tensors from the list of tuples (image, caption).
+    We should build custom collate_fn rather than using default collate_fn, because merging captions of varying lengths is not supported in default.
+    Args:
+        data: list of tuple (image, caption, class_id).
+            - image: torch float tensor of shape (3, d_image_size, d_image_size).
+            - caption: torch long tensor of shape (?); variable length.
+            - class_id: integer id of the class name of the image.
+    Returns:
+        images: torch float tensor of shape (d_batch, 3, d_image_size, d_image_size).
+        targets: torch long tensor of shape (d_batch, padded_length).
+        lengths: list; valid length for each padded caption.
+        class_ids: torch long tensor of shape (d_batch,).
+    """
+    # Sort a data list by caption length (descending order).
+    data.sort(key=lambda x: len(x[1]), reverse=True)
+    images, captions, class_ids = zip(*data)
+
+    # Merge images (from tuple of 3D tensor to 4D tensor).
+    images = torch.stack(images, 0)
+    class_ids = torch.LongTensor(class_ids)
+
+    # Merge captions (from tuple of 1D tensor to 2D tensor).
+    lengths = [len(cap) for cap in captions]
+    targets = torch.zeros(len(captions), max(lengths)).long()
+    for i, caption in enumerate(captions):
+        targets[i, :lengths[i]] = caption
+
+    return images, targets, lengths, class_ids
 
 class Dictionary:
     """
@@ -79,7 +112,7 @@ class CUB2011Dataset(Dataset):
     # pylint: disable=too-many-instance-attributes
     # The attributes are necessary for this dataset.
 
-    def __init__(self, dataset_dir=CUB_200_2011_DATASET_PATH, captions_dir=CUB_200_2011_DATASET_CAPTIONS_PATH, split='train', d_max_seq_len=18, img_transforms=None, loader=default_loader):
+    def __init__(self, dataset_dir=CUB_200_2011_DATASET_PATH, captions_dir=CUB_200_2011_DATASET_CAPTIONS_PATH, split='train', img_transforms=None, loader=default_loader):
         # pylint: disable=too-many-arguments
         # The arguments are necessary to construct this dataset.
 
@@ -92,10 +125,10 @@ class CUB2011Dataset(Dataset):
         assert os.path.isdir(self.dataset_dir), f'The images path {self.images_dir} is not a directory.'
         assert os.path.isdir(self.captions_dir), f'The captions path {self.captions_dir} is not a directory.'
 
-        self.d_max_seq_len = d_max_seq_len
-        self.img_transforms = img_transforms
-        self.loader = loader
         self.split = split
+        self.loader = loader
+        self.img_transforms = img_transforms if img_transforms is not None else get_standard_img_transforms()
+
         self.dict = Dictionary()
         self.end_token = self.dict.add_word('<eos>')
         self.start_token = self.dict.add_word('<sos>')
@@ -117,7 +150,6 @@ class CUB2011Dataset(Dataset):
 
         self.data = images.merge(image_class_labels, on='img_id').merge(train_test_split, on='img_id')
         self.data = self.data[self.data.is_training_img == (1 if self.split == 'train' else 0)]
-
 
     def _load_captions(self):
         """
@@ -143,11 +175,10 @@ class CUB2011Dataset(Dataset):
             current_image_captions = []
 
             for line in lines:
-                words = line.strip().split()[:self.d_max_seq_len - 1]
+                words = line.strip().split()
                 if len(words) == 0:
                     continue
-                num_padding = self.d_max_seq_len - len(words)
-                caption = [self.dict.add_word(word) for word in words] + num_padding * [self.end_token]
+                caption = [self.dict.add_word(word) for word in words]
                 current_image_captions.append(torch.LongTensor(caption))
 
             if len(current_image_captions) == 0:
@@ -187,3 +218,12 @@ class CUB2011Dataset(Dataset):
         class_id = sample.target - 1  # Make class ids start at 0 (starts at 1 by default)
 
         return img, caption, class_id
+
+def get_cub2011_data_loader(d_batch=20, **kwargs):
+    """
+    Returns a default data loader for the CUB 2011 dataset.
+    """
+
+    dataset = CUB2011Dataset(**kwargs)
+    data_loader = DataLoader(dataset, batch_size=d_batch, shuffle=True, num_workers=4, collate_fn=collate_fn, pin_memory=True, drop_last=True)
+    return data_loader
