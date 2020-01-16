@@ -97,6 +97,20 @@ class DCGAN256(nn.Module):
         model_dict.update(filtered_dict)
         self.load_state_dict(model_dict)
 
+        loaded_parameter_names = layers_from_to_mapping.values()
+        untrained_parameters_g = []
+        untrained_parameters_d = []
+        for name, parameter in self.named_parameters():
+            if name in loaded_parameter_names:
+                continue
+            if 'gen' in name:
+                untrained_parameters_g.append(parameter)
+            else:
+                untrained_parameters_d.append(parameter)
+
+        untrained_parameters = untrained_parameters_g, untrained_parameters_d
+        return untrained_parameters
+
     def forward(self, noise):
         # pylint: disable=arguments-differ
         # pylint: disable=invalid-name
@@ -141,7 +155,7 @@ class DCGAN64(nn.Module):
         pred_logits = self.img_dis(images)
         return pred_logits
 
-def train_dcgan(dcgan, dataloader, device, d_batch, num_epochs, output_dir, print_every=100, save_results=True, config_name='generated'):
+def train_dcgan(dcgan, dataloader, device, d_batch, num_epochs, output_dir, print_every=100, save_results=True, config_name='generated', learning_rate=0.0002, untrained_parameters=None):
     """
     Train the DCGAN on the given dataset.
     """
@@ -151,7 +165,6 @@ def train_dcgan(dcgan, dataloader, device, d_batch, num_epochs, output_dir, prin
     # The arguments are necesarry for training.
 
     beta1 = 0.5
-    learning_rate = 0.0002
     d_noise = dcgan.d_noise
     s_noise = (d_batch, d_noise, 1, 1)
     real_labels = torch.full((d_batch,), 1, device=device)
@@ -172,6 +185,14 @@ def train_dcgan(dcgan, dataloader, device, d_batch, num_epochs, output_dir, prin
     dis_train_losses = []
     gen_train_losses = []
     gen_eval_losses = []
+
+    dcgan.train()
+
+    # if we are using pretrained weights from dcgan 64 only train untrained parameters
+    if untrained_parameters is not None:
+        untrained_parameters_g, untrained_parameters_d = untrained_parameters
+        opt_g = optim.Adam(untrained_parameters_g, lr=learning_rate, betas=(beta1, 0.999))
+        opt_d = optim.Adam(untrained_parameters_d, lr=learning_rate, betas=(beta1, 0.999))
 
     for epoch in range(1, num_epochs+1):
         print('epoch:', epoch)
@@ -219,10 +240,12 @@ def train_dcgan(dcgan, dataloader, device, d_batch, num_epochs, output_dir, prin
                 dis_train_losses.append(running_loss_d)
                 running_loss_g = 0
                 running_loss_d = 0
+                dcgan.eval()
                 with torch.no_grad():
                     fake_imgs = dcgan.img_gen(fixed_noise)
                     pred_logits = dcgan.img_dis(fake_imgs).squeeze()
                     loss_g = criterion(pred_logits, real_labels)
+                dcgan.train()
                 print('evaluation loss_g:', loss_g.item())
                 gen_eval_losses.append(loss_g.item())
                 image_grid = torchvision.utils.make_grid(fake_imgs, padding=2, normalize=True).cpu()

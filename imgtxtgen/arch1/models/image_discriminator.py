@@ -62,7 +62,6 @@ class ImageDiscriminator256(nn.Module):
             # state size. (ndf*8) x 4 x 4
             nn.Conv2d(d_dis * 32, 1, 4, 1, 0, bias=False),
             # state size. 1 x 1 x 1
-            nn.Sigmoid()
         )
 
     def forward(self, x):
@@ -110,7 +109,6 @@ class ImageDiscriminator64(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*8) x 4 x 4
             nn.Conv2d(d_dis * 8, 1, 4, 1, 0, bias=False),
-            nn.Sigmoid()
         )
 
     def forward(self, x):

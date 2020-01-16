@@ -226,4 +226,4 @@ def get_cub2011_data_loader(d_batch=20, **kwargs):
 
     dataset = CUB2011Dataset(**kwargs)
     data_loader = DataLoader(dataset, batch_size=d_batch, shuffle=True, num_workers=4, collate_fn=collate_fn, pin_memory=True, drop_last=True)
-    return data_loader
+    return data_loader, dataset
