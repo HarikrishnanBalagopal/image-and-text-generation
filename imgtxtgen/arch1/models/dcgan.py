@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 
 from torch import nn
 from torch import optim
-
 from imgtxtgen.common.utils import mkdir_p, get_timestamp
 from imgtxtgen.arch1.models.image_generator import ImageGenerator64, ImageGenerator256
 from imgtxtgen.arch1.models.image_discriminator import ImageDiscriminator64, ImageDiscriminator256
