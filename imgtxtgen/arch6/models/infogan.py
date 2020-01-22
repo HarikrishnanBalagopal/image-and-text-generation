@@ -73,14 +73,10 @@ def get_categorical_log_probs(xs, logits):
     log_probs = log_softmax(logits, dim=1)
     return torch.gather(log_probs, dim=1, index=xs.unsqueeze(1))
 
-# THIS IS NUMERICALLY UNSTABLE, GIVES NAN AT START OF TRAINING.
-# TAKEN FROM https://github.com/Natsu6767/InfoGAN-PyTorch/blob/4586919f2821b9b2e4aeff8a07c5003a5905c7f9/utils.py#L15-L28
+# normal_nll_loss TAKEN FROM https://github.com/Natsu6767/InfoGAN-PyTorch/blob/4586919f2821b9b2e4aeff8a07c5003a5905c7f9/utils.py#L15-L28
 def normal_nll_loss(xs, mu, var):
     """
-    Calculate the negative log likelihood
-    of normal distribution.
-    This needs to be minimised.
-    Treating Q(cj | x) as a factored Gaussian.
+    Calculate the negative log likelihood of normal distribution.
     """
     # pylint: disable=invalid-name
     # Short names like xs, mu, etc. are fine in this function.
@@ -89,18 +85,6 @@ def normal_nll_loss(xs, mu, var):
     nll = -(logli.sum(1).mean())
 
     return nll
-
-# def normal_nll_loss(xs, mu, var):
-#     """
-#     Calculate the negative log likelihood
-#     of normal distribution.
-#     This needs to be minimised.
-#     Treating Q(cj | x) as a factored Gaussian.
-#     """
-#     # pylint: disable=invalid-name
-#     # Short names like xs, mu, etc. are fine in this function.
-
-#     return Normal(loc=mu, scale=var.sqrt()).log_prob(xs).sum(dim=1).mean()
 
 def dbg_plot(metrics, filename):
     """
@@ -192,7 +176,7 @@ def train(model, data_loader, device, d_batch, num_epochs=20, print_every=10):
 
             label_logits, rest_means, rest_vars = model.q_head(fake_features)
             gen_loss_labels = labels_loss_fn(label_logits, fake_labels)
-            gen_loss_rest = normal_nll_loss(rest_code, rest_means, rest_vars) * 0.1 # scale continuous part loss to avoid overwhelming the other losses.
+            gen_loss_rest = normal_nll_loss(rest_code, rest_means, rest_vars) # * 0.1 # scale continuous part loss to avoid overwhelming the other losses.
 
             gen_loss = gen_loss_fake + gen_loss_labels + gen_loss_rest
             gen_loss.backward()
@@ -205,9 +189,8 @@ def train(model, data_loader, device, d_batch, num_epochs=20, print_every=10):
             metrics_gen_loss_rest.append(gen_loss_rest.item())
 
             if i % print_every == 0:
-                # print('dis loss:', dis_loss)
-                # print('gen loss:', gen_loss)
-                print('debug gen_loss_rest:', gen_loss_rest)
+                print(f'dis_loss: {dis_loss.item():.4f} dis_loss_real: {dis_loss_real.item():.4f} dis_loss_fake: {dis_loss_fake.item():.4f}')
+                print(f'gen_loss: {gen_loss.item():.4f} gen_loss_fake: {gen_loss_fake.item():.4f} gen_loss_labels: {gen_loss_labels.item():.4f} gen_loss_rest:{gen_loss_rest.item():.4f}')
                 model.eval()
                 fake_imgs = model.sample_images(fixed_noise, fixed_labels, fixed_rest_code)
                 model.train()
