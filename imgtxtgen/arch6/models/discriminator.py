@@ -30,9 +30,6 @@ class Discriminator(nn.Module):
         super().__init__()
         self.d_ch = 1
         self.d_dis = 64
-        self.d_classes = 10
-        self.d_rest_code = 2
-        self.d_code = self.d_classes + self.d_rest_code
 
         self.define_module()
 
@@ -50,7 +47,57 @@ class Discriminator(nn.Module):
             nn.BatchNorm1d(1024),
             nn.LeakyReLU(0.1)
         )
+    def forward(self, images):
+        """
+        Run the network forward.
+        """
+        # pylint: disable=arguments-differ
+        # The arguments will differ from the base class since nn.Module is an abstract class.
+
+        return self.common_blocks(images)
+
+class DHead(nn.Module):
+    """
+    Discriminator head for predicting whether images are real or fake.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.define_module()
+
+    def define_module(self):
+        """
+        Define each part of D_head.
+        """
+
         self.fc_d = nn.Linear(1024, 1)
+
+    def forward(self, features):
+        """
+        Run the network forward.
+        """
+        # pylint: disable=arguments-differ
+        # The arguments will differ from the base class since nn.Module is an abstract class.
+
+        return self.fc_d(features)
+
+class QHead(nn.Module):
+    """
+    Discriminator head for predicting the latent code.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.d_classes = 10
+        self.d_rest_code = 4
+        self.d_code = self.d_classes + self.d_rest_code
+
+        self.define_module()
+
+    def define_module(self):
+        """
+        Define each part of Q_head.
+        """
         self.fc_q = nn.Sequential(
             nn.Linear(1024, 128),
             nn.BatchNorm1d(128),
@@ -58,8 +105,7 @@ class Discriminator(nn.Module):
             nn.Linear(128, self.d_code)
         )
 
-
-    def forward(self, images):
+    def forward(self, features):
         """
         Run the network forward.
         """
@@ -68,10 +114,10 @@ class Discriminator(nn.Module):
         # The arguments will differ from the base class since nn.Module is an abstract class.
         # The whitespace makes it more readable.
 
-        latent       = self.common_blocks(images)
-        valid_logits = self.fc_d(latent)
-        code         = self.fc_q(latent)
-        label_logits = code[:, :self.d_classes]
-        rest_means   = code[:, self.d_classes:]
+        d_classes    = self.d_classes
+        code         = self.fc_q(features)
+        label_logits = code[:, :d_classes]
+        rest_means   = code[:, d_classes:d_classes+2]
+        rest_vars    = code[:, d_classes+2:].exp()
 
-        return valid_logits, label_logits, rest_means
+        return label_logits, rest_means, rest_vars

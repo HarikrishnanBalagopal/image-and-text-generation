@@ -44,7 +44,8 @@ def sample():
     # weights_path = '/users/gpu/haribala/code/image/experiments/exp7/image-and-text-generation/outputs/arch6/infogan_MNIST_2020_01_21_20_25_08/weights_12_400.pth'
     # weights_path = '/users/gpu/haribala/code/image/experiments/exp7/image-and-text-generation/outputs/arch6/infogan_MNIST_2020_01_21_20_36_14/weights_33_300.pth'
     # weights_path = '/users/gpu/haribala/code/image/experiments/exp7/image-and-text-generation/outputs/arch6/infogan_MNIST_2020_01_22_02_54_21/weights_2_400.pth'
-    weights_path = '/users/gpu/haribala/code/image/experiments/exp7/image-and-text-generation/outputs/arch6/infogan_MNIST_2020_01_22_03_06_25/weights_4_100.pth'
+    # weights_path = '/users/gpu/haribala/code/image/experiments/exp7/image-and-text-generation/outputs/arch6/infogan_MNIST_2020_01_22_03_06_25/weights_4_100.pth'
+    weights_path = '/users/gpu/haribala/code/image/experiments/exp7/image-and-text-generation/outputs/arch6/infogan_MNIST_2020_01_23_00_55_47/weights_10_100.pth'
 
     device = torch.device(f'cuda:{gpu_id}' if torch.cuda.is_available() else 'cpu')
     model = InfoGAN()
@@ -58,7 +59,10 @@ def sample():
 
     noise, labels, rest_code = model.gen.sample_latent(num_samples=d_batch, device=device)
     images = model.sample_images(noise, labels, rest_code)
-    valid_logits, label_logits, _ = model.dis(images)
+    with torch.no_grad():
+        features = model.dis(images)
+        valid_logits = model.d_head(features)
+        label_logits, _, _ = model.q_head(features)
 
     is_real = sigmoid(valid_logits) > 0.5
     _, pred_labels = label_logits.max(dim=1)

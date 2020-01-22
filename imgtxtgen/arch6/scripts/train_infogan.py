@@ -27,7 +27,7 @@ def train_infogan():
     ])
     datasets_dir = '/users/gpu/haribala/code/datasets'
     mnist = MNIST(datasets_dir, train=True, download=True, transform=img_transforms)
-    train_loader = DataLoader(mnist, batch_size=d_batch, shuffle=True, num_workers=4)
+    train_loader = DataLoader(mnist, batch_size=d_batch, shuffle=True, num_workers=4, drop_last=True)
 
     model = InfoGAN().to(device)
     train(model, train_loader, device, d_batch, num_epochs=num_epochs, print_every=print_every)
