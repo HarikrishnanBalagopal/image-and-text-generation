@@ -1,4 +1,5 @@
 """
+CUB2011 version.
 Module for InfoGAN.
 Architecture taken from the InfoGAN paper:
 https://arxiv.org/pdf/1606.03657.pdf
@@ -17,13 +18,13 @@ from torch.optim import Adam
 import matplotlib.pyplot as plt
 from torchvision.utils import save_image
 from torch.nn.functional import log_softmax
-from imgtxtgen.arch6.models.generator import Generator
 from imgtxtgen.common.utils import mkdir_p, get_timestamp
-from imgtxtgen.arch6.models.discriminator import Discriminator, DHead, QHead
+from imgtxtgen.arch6.models.generator_cub2011 import Generator
+from imgtxtgen.arch6.models.discriminator_cub2011 import Discriminator, DHead, QHead
 
 class InfoGAN(nn.Module):
     """
-    InfoGAN designed for MNIST 28 x 28 grayscale images from 10 classes.
+    InfoGAN designed for CUB2011 256 x 256 color images from 200 classes.
     """
 
     def __init__(self):
@@ -112,7 +113,7 @@ def train(model, data_loader, device, d_batch, num_epochs=20, print_every=10):
     dis_opt = Adam(list(model.dis.parameters()) + list(model.d_head.parameters()), lr=2e-4)
 
     fixed_noise, fixed_labels, fixed_rest_code = model.gen.sample_latent(64, device=device)
-    output_dir = f'./outputs/arch6/infogan_MNIST_{get_timestamp()}/'
+    output_dir = f'./outputs/arch6/infogan_CUB2011_{get_timestamp()}/'
     mkdir_p(output_dir)
 
     validity_loss_fn = nn.BCEWithLogitsLoss()
@@ -136,7 +137,7 @@ def train(model, data_loader, device, d_batch, num_epochs=20, print_every=10):
     for epoch in range(1, num_epochs+1):
         print('epoch:', epoch)
 
-        for i, (real_imgs, _) in enumerate(data_loader, start=1):
+        for i, (real_imgs, _, _, _) in enumerate(data_loader, start=1):
 
             # Prepare the batch.
             real_imgs = real_imgs.to(device)
@@ -175,7 +176,7 @@ def train(model, data_loader, device, d_batch, num_epochs=20, print_every=10):
 
             label_logits, rest_means, rest_vars = model.q_head(fake_features)
             gen_loss_labels = labels_loss_fn(label_logits, fake_labels)
-            gen_loss_rest = normal_nll_loss(rest_code, rest_means, rest_vars) # * 0.1 # scale continuous part loss to avoid overwhelming the other losses.
+            gen_loss_rest = normal_nll_loss(rest_code, rest_means, rest_vars) * 0.1 # scale continuous part loss to avoid overwhelming the other losses.
 
             gen_loss = gen_loss_fake + gen_loss_labels + gen_loss_rest
             gen_loss.backward()

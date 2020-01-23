@@ -60,7 +60,7 @@ def collate_fn(data):
     class_ids = torch.LongTensor(class_ids)
 
     # Merge captions (from tuple of 1D tensor to 2D tensor).
-    lengths = [len(cap) for cap in captions]
+    lengths = torch.LongTensor([len(cap) for cap in captions])
     targets = torch.zeros(len(captions), max(lengths)).long()
     for i, caption in enumerate(captions):
         targets[i, :lengths[i]] = caption
@@ -221,7 +221,8 @@ class CUB2011Dataset(Dataset):
 
 def get_cub2011_data_loader(d_batch=20, **kwargs):
     """
-    Returns a default data loader for the CUB 2011 dataset.
+    Returns a default data loader for the CUB 2011 dataset and the dataset itself.
+    returns: a tuple of (data_loader, dataset)
     """
 
     dataset = CUB2011Dataset(**kwargs)
