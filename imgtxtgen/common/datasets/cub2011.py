@@ -1,5 +1,6 @@
 """
 Module for CUB2011 dataset with captions.
+Images, classes and captions.
 The images are from the paper Caltech-UCSD Birds-200-2011 https://authors.library.caltech.edu/27452/1/CUB_200_2011.pdf
 The images can be downloaded here: http://www.vision.caltech.edu/visipedia/CUB-200-2011.html
 The captions are from the paper Learning Deep Representations of Fine-Grained Visual Descriptions https://arxiv.org/pdf/1605.05395.pdf

@@ -1,5 +1,6 @@
 """
 Module for celeba dataset stored in /users/gpu/haribala/code/datasets/celeba.
+Images only.
 """
 # pylint: disable=wrong-import-order
 # pylint: disable=ungrouped-imports
